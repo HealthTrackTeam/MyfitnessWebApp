@@ -41,7 +41,7 @@ const Activities = () => {
   });
 
   // Filter state
-  const [filter, setFilter] = useState<'all' | 'planned' | 'completed'>();
+  const [filter, setFilter] = useState<'all' | 'planned' | 'completed'>('all');
 
   useEffect(() => {
     if (!token) {
