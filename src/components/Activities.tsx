@@ -8,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { toast } from 'sonner';
 import { useAuth } from '@/contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
-import { Plus, Edit2, Trash2, Activity, Flame, Clock, LogOut, X } from 'lucide-react';
+import { Plus, Edit2, Trash2, Activity, Flame, Clock, LogOut } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 
 interface Activity {
@@ -40,6 +40,9 @@ const Activities = () => {
     status: 'planned'
   });
 
+  // Filter state
+  const [filter, setFilter] = useState<'all' | 'planned' | 'completed'>();
+
   useEffect(() => {
     if (!token) {
       navigate('/login');
@@ -50,14 +53,9 @@ const Activities = () => {
 
   const fetchActivities = async () => {
     try {
-      // const response = await fetch('https://myfitnesstracking-v3.onrender.com/api/activities/', {
-       const response = await fetch('https://myfitnesstracking-v3.onrender.com/api/activities/', {
-
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
+      const response = await fetch('https://myfitnesstracking-v3.onrender.com/api/activities/', {
+        headers: { 'Authorization': `Bearer ${token}` },
       });
-
       if (response.ok) {
         const data = await response.json();
         setActivities(data);
@@ -73,18 +71,15 @@ const Activities = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
     const payload = {
       ...formData,
       duration_minutes: parseInt(formData.duration_minutes),
       calories: parseInt(formData.calories),
     };
-
     try {
       const url = editingActivity
         ? `https://myfitnesstracking-v3.onrender.com/api/activities/${editingActivity.id}/`
         : 'https://myfitnesstracking-v3.onrender.com/api/activities/';
-      
       const response = await fetch(url, {
         method: editingActivity ? 'PUT' : 'POST',
         headers: {
@@ -93,7 +88,6 @@ const Activities = () => {
         },
         body: JSON.stringify(payload),
       });
-
       if (response.ok) {
         toast.success(editingActivity ? 'Activity updated!' : 'Activity created!');
         setIsDialogOpen(false);
@@ -102,29 +96,25 @@ const Activities = () => {
       } else {
         toast.error('Failed to save activity');
       }
-    } catch (error) {
+    } catch {
       toast.error('Network error');
     }
   };
 
   const handleDelete = async (id: number) => {
     if (!confirm('Are you sure you want to delete this activity?')) return;
-
     try {
       const response = await fetch(`https://myfitnesstracking-v3.onrender.com/api/activities/${id}/`, {
         method: 'DELETE',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
+        headers: { 'Authorization': `Bearer ${token}` },
       });
-
       if (response.ok) {
         toast.success('Activity deleted!');
         fetchActivities();
       } else {
         toast.error('Failed to delete activity');
       }
-    } catch (error) {
+    } catch {
       toast.error('Network error');
     }
   };
@@ -167,6 +157,9 @@ const Activities = () => {
     toast.success('Logged out successfully');
   };
 
+  // Filter activities based on selected filter
+  const filteredActivities = filter === 'all' ? activities : activities.filter(a => a.status === filter);
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-primary/5 to-accent/10">
       <header className="border-b bg-card/50 backdrop-blur-sm sticky top-0 z-10" style={{ boxShadow: 'var(--shadow-sm)' }}>
@@ -181,8 +174,7 @@ const Activities = () => {
             </div>
           </div>
           <Button variant="outline" onClick={handleLogout} className="gap-2">
-            <LogOut className="h-4 w-4" />
-            Logout
+            <LogOut className="h-4 w-4" /> Logout
           </Button>
         </div>
       </header>
@@ -194,30 +186,40 @@ const Activities = () => {
             <p className="text-muted-foreground mt-1">Track your fitness progress</p>
           </div>
           <Button onClick={openCreateDialog} className="gap-2 h-11 px-6 bg-gradient-to-r from-primary to-primary/90">
-            <Plus className="h-5 w-5" />
-            Add Activity
+            <Plus className="h-5 w-5" /> Add Activity
           </Button>
+        </div>
+
+        {/* Filter Buttons */}
+        <div className="flex gap-2 mb-6">
+          {['all', 'planned', 'completed'].map((status) => (
+            <Button
+              key={status}
+              variant={filter === status ? 'default' : 'outline'}
+              onClick={() => setFilter(status as typeof filter)}
+            >
+              {status.charAt(0).toUpperCase() + status.slice(1)}
+            </Button>
+          ))}
         </div>
 
         {loading ? (
           <div className="text-center py-12">
             <p className="text-muted-foreground">Loading activities...</p>
           </div>
-        ) : activities.length === 0 ? (
+        ) : filteredActivities.length === 0 ? (
           <Card className="text-center py-12">
             <CardContent>
               <Activity className="h-16 w-16 mx-auto mb-4 text-muted-foreground" />
-              <h3 className="text-xl font-semibold mb-2">No activities yet</h3>
-              <p className="text-muted-foreground mb-4">Start tracking your fitness journey!</p>
+              <h3 className="text-xl font-semibold mb-2">No activities found</h3>
               <Button onClick={openCreateDialog} className="gap-2">
-                <Plus className="h-4 w-4" />
-                Add Your First Activity
+                <Plus className="h-4 w-4" /> Add Your First Activity
               </Button>
             </CardContent>
           </Card>
         ) : (
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-            {activities.map((activity) => (
+            {filteredActivities.map((activity) => (
               <Card key={activity.id} className="hover:shadow-lg transition-all duration-300" style={{ boxShadow: 'var(--shadow-sm)' }}>
                 <CardHeader className="pb-3">
                   <div className="flex justify-between items-start">
@@ -248,11 +250,7 @@ const Activities = () => {
                     </div>
                     <div className="flex items-center justify-between pt-2 border-t">
                       <span className="text-sm text-muted-foreground">{activity.date}</span>
-                      <span className={`text-xs px-2 py-1 rounded-full ${
-                        activity.status === 'completed' 
-                          ? 'bg-primary/10 text-primary' 
-                          : 'bg-accent/10 text-accent'
-                      }`}>
+                      <span className={`text-xs px-2 py-1 rounded-full ${activity.status === 'completed' ? 'bg-primary/10 text-primary' : 'bg-accent/10 text-accent'}`}>
                         {activity.status}
                       </span>
                     </div>
@@ -267,21 +265,17 @@ const Activities = () => {
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle className="text-2xl">
-              {editingActivity ? 'Edit Activity' : 'Add New Activity'}
-            </DialogTitle>
+            <DialogTitle className="text-2xl">{editingActivity ? 'Edit Activity' : 'Add New Activity'}</DialogTitle>
           </DialogHeader>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="activity_type">Activity Type</Label>
-                <Select 
-                  value={formData.activity_type} 
+                <Select
+                  value={formData.activity_type}
                   onValueChange={(value) => setFormData({ ...formData, activity_type: value })}
                 >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="workout">Workout</SelectItem>
                     <SelectItem value="cardio">Cardio</SelectItem>
@@ -293,13 +287,11 @@ const Activities = () => {
               </div>
               <div className="space-y-2">
                 <Label htmlFor="status">Status</Label>
-                <Select 
-                  value={formData.status} 
+                <Select
+                  value={formData.status}
                   onValueChange={(value) => setFormData({ ...formData, status: value })}
                 >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="planned">Planned</SelectItem>
                     <SelectItem value="completed">Completed</SelectItem>
@@ -310,71 +302,32 @@ const Activities = () => {
 
             <div className="space-y-2">
               <Label htmlFor="title">Title</Label>
-              <Input
-                id="title"
-                value={formData.title}
-                onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                required
-                placeholder="e.g., Morning Run"
-              />
+              <Input id="title" value={formData.title} onChange={(e) => setFormData({ ...formData, title: e.target.value })} required placeholder="e.g., Morning Run" />
             </div>
 
             <div className="space-y-2">
               <Label htmlFor="description">Description</Label>
-              <Textarea
-                id="description"
-                value={formData.description}
-                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                required
-                placeholder="Describe your activity..."
-                rows={3}
-              />
+              <Textarea id="description" value={formData.description} onChange={(e) => setFormData({ ...formData, description: e.target.value })} required placeholder="Describe your activity..." rows={3} />
             </div>
 
             <div className="grid grid-cols-3 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="date">Date</Label>
-                <Input
-                  id="date"
-                  type="date"
-                  value={formData.date}
-                  onChange={(e) => setFormData({ ...formData, date: e.target.value })}
-                  required
-                />
+                <Input id="date" type="date" value={formData.date} onChange={(e) => setFormData({ ...formData, date: e.target.value })} required />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="duration">Duration (min)</Label>
-                <Input
-                  id="duration"
-                  type="number"
-                  value={formData.duration_minutes}
-                  onChange={(e) => setFormData({ ...formData, duration_minutes: e.target.value })}
-                  required
-                  min="1"
-                  placeholder="30"
-                />
+                <Input id="duration" type="number" value={formData.duration_minutes} onChange={(e) => setFormData({ ...formData, duration_minutes: e.target.value })} required min="1" placeholder="30" />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="calories">Calories</Label>
-                <Input
-                  id="calories"
-                  type="number"
-                  value={formData.calories}
-                  onChange={(e) => setFormData({ ...formData, calories: e.target.value })}
-                  required
-                  min="1"
-                  placeholder="250"
-                />
+                <Input id="calories" type="number" value={formData.calories} onChange={(e) => setFormData({ ...formData, calories: e.target.value })} required min="1" placeholder="250" />
               </div>
             </div>
 
             <div className="flex gap-3 pt-4">
-              <Button type="submit" className="flex-1 h-11">
-                {editingActivity ? 'Update Activity' : 'Create Activity'}
-              </Button>
-              <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)} className="h-11">
-                Cancel
-              </Button>
+              <Button type="submit" className="flex-1 h-11">{editingActivity ? 'Update Activity' : 'Create Activity'}</Button>
+              <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)} className="h-11">Cancel</Button>
             </div>
           </form>
         </DialogContent>
